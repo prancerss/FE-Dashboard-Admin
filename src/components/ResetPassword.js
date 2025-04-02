@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Cookies from 'js-cookie';
 
 const ResetPassword = () => {
   const [passwords, setPasswords] = useState({
@@ -10,9 +11,13 @@ const ResetPassword = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
-  const token = new URLSearchParams(location.search).get('token');
-  const email = new URLSearchParams(location.search).get('email');
+  const token = Cookies.get('resetToken');
+
+  if (!token) {
+    navigate('/');
+    return null;
+  }
+  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -42,14 +47,28 @@ const ResetPassword = () => {
     if (!validatePasswords()) return;
 
     try {
-      const response = await axios.post('https://test.klveen.com/merchant/resetpassword', {
-        token,
-        newPassword: passwords.password
-      });
+      const response = await axios.post('https://test.klveen.com/merchant/resetpassword', 
+        passwords,  // Request body
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }  // Request config
+      );
+      console.log('Response:', response);
+
+      if (response.status !== 200) {
+        setError('Failed to reset password. Please try again.');
+        setSuccess('');
+        return;
+      }
       
       setSuccess('Password has been successfully reset');
       setError('');
       setTimeout(() => navigate('/'), 3000);
+      Cookies.remove('resetToken');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reset password. Please try again.');
       setSuccess('');
@@ -74,19 +93,6 @@ const ResetPassword = () => {
               {success}
             </div>
           )}
-          <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email || ''}
-              className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-gray-50 text-gray-700"
-              disabled
-              readOnly
-            />
-          </div>
           <div className="space-y-2">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               New Password

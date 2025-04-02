@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import Cookies from 'js-cookie';
 
 const Login = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -32,6 +33,18 @@ const Login = ({ onLogin }) => {
         setShowForgotPassword(false);
         setSuccess('');
       }, 3000);
+      const status = response.status;
+      console.log(response);
+      console.log(status);
+      if (status === 200) {
+        const resetToken = response.data.resetToken;
+        Cookies.set('resetToken', resetToken, {
+          expires: 15/24/60,
+          secure: true,
+          sameSite: 'strict',
+          path:'/'
+        });
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to process request. Please try again.');
       setSuccess('');
@@ -44,8 +57,25 @@ const Login = ({ onLogin }) => {
       const response = await axios.post('https://test.klveen.com/merchant/login', credentials, {
         withCredentials: true
       });
-      
-      if (response.data) {
+      console.log(response);
+      if (response.status === 200) {
+        const accessToken = response.data.data.accessToken;
+        const refreshToken = response.data.data.refreshToken;
+        
+        Cookies.set('access', accessToken, {
+          expires: 15/24/60,
+          secure: true,
+          sameSite:'strict',
+          path:'/'
+        });
+
+        Cookies.set('refresh', refreshToken, {
+          expires: 7,
+          secure: true,
+          sameSite:'strict',
+          path:'/'
+        });
+
         onLogin();
       }
     } catch (err) {
