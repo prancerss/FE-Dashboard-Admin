@@ -26,7 +26,16 @@ const Login = ({ onLogin }) => {
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('https://test.klveen.com/merchant/forgotpassword', { email: forgotEmail });
+      const response = await axios.post('https://test.klveen.com/merchant/forgotpassword', 
+        { email: forgotEmail },
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      );
       setSuccess('Password reset instructions have been sent to your email.');
       setError('');
       setTimeout(() => {
@@ -34,8 +43,6 @@ const Login = ({ onLogin }) => {
         setSuccess('');
       }, 3000);
       const status = response.status;
-      console.log(response);
-      console.log(status);
       if (status === 200) {
         const resetToken = response.data.resetToken;
         Cookies.set('resetToken', resetToken, {
@@ -54,26 +61,43 @@ const Login = ({ onLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('https://test.klveen.com/merchant/login', credentials, {
-        withCredentials: true
-      });
-      console.log(response);
+      const response = await axios.post('https://test.klveen.com/merchant/login', 
+        {
+          email: credentials.email,
+          password: credentials.password
+        },
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      );
       if (response.status === 200) {
         const accessToken = response.data.data.accessToken;
         const refreshToken = response.data.data.refreshToken;
+        const merchantId = response.data.data.merchantId;
         
         Cookies.set('access', accessToken, {
           expires: 15/24/60,
           secure: true,
-          sameSite:'strict',
-          path:'/'
+          sameSite: 'strict',
+          path: '/'
         });
 
         Cookies.set('refresh', refreshToken, {
           expires: 7,
           secure: true,
-          sameSite:'strict',
-          path:'/'
+          sameSite: 'strict',
+          path: '/'
+        });
+
+        Cookies.set('merchantId', merchantId, {
+          expires: 15/24/60,
+          secure: true,
+          sameSite: 'strict',
+          path: '/'
         });
 
         onLogin();

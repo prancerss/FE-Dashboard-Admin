@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PencilIcon, TrashIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const Cashier = () => {
   const [cashiers, setCashiers] = useState([]);
@@ -13,7 +14,16 @@ const Cashier = () => {
 
   const fetchCashiers = async () => {
     try {
-      const response = await axios.get('https://test.klveen.com/cashier');
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+      const response = await axios.get('https://test.klveen.com/cashier', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
       setCashiers(response.data);
       setError(null);
     } catch (err) {
@@ -69,51 +79,75 @@ const Cashier = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteCashier = async (id) => {
-    if (window.confirm('Are you sure you want to delete this cashier?')) {
-      setLoading(true);
-      try {
-        await axios.put(`https://test.klveen.com/cashier/softDelete/detail?id=${id}`);
-        // Update local state immediately after successful deletion
-        setCashiers(prevCashiers => prevCashiers.filter(cashier => cashier.id !== id));
-        setError(null);
-      } catch (err) {
-        setError('Failed to delete cashier');
-        console.error('Error deleting cashier:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      };
       if (currentCashier) {
         // Edit existing cashier
-        const response = await axios.put(`https://test.klveen.com/cashier/detail/?id=${currentCashier.id}`, formData);
-        console.log('Update response:', response.data);
+        await axios.put(`https://test.klveen.com/cashier/detail/?id=${currentCashier.id}`, formData, config);
+        setError(null);
+        setIsModalOpen(false);
+        await fetchCashiers();
       } else {
         // Add new cashier
-        const response = await axios.post('https://test.klveen.com/cashier/create', formData);
-        console.log('Create response:', response.data);
+        await axios.post('https://test.klveen.com/cashier/create', formData, config);
+        setError(null);
+        setIsModalOpen(false);
+        await fetchCashiers();
       }
-      await fetchCashiers();
-      setIsModalOpen(false);
-      setError(null);
     } catch (err) {
+      const operation = currentCashier ? 'updating' : 'creating';
       const errorMessage = err.response
-        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
-        : 'Network error: Unable to connect to server';
+        ? `Error ${operation} cashier: ${err.response.data.message || err.response.statusText || 'Unknown error'}`
+        : `Network error while ${operation} cashier: Unable to connect to server`;
       setError(errorMessage);
-      console.error('Error saving cashier:', {
+      console.error(`Error ${operation} cashier:`, {
         error: err,
         response: err.response?.data,
         formData: formData
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCashier = async (id) => {
+    if (window.confirm('Are you sure you want to delete this cashier?')) {
+      setLoading(true);
+      try {
+        const accessToken = Cookies.get('access');
+        if (!accessToken) {
+          setError('Authentication required. Please log in.');
+          return;
+        }
+        await axios.put(`https://test.klveen.com/cashier/softDelete/detail?id=${id}`, {}, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        // Update local state immediately after successful deletion
+        setCashiers(prevCashiers => prevCashiers.filter(cashier => cashier.id !== id));
+        setError(null);
+      } catch (err) {
+        const errorMessage = err.response
+          ? `Error deleting cashier: ${err.response.data.message || err.response.statusText || 'Unknown error'}`
+          : 'Network error while deleting cashier: Unable to connect to server';
+        setError(errorMessage);
+        console.error('Error deleting cashier:', err);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

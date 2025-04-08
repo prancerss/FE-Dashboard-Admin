@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const Product = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -6,142 +8,165 @@ const Product = () => {
   const [searchProduct, setSearchProduct] = useState('');
   const [currentCategoryPage, setCurrentCategoryPage] = useState(1);
   const [currentProductPage, setCurrentProductPage] = useState(1);
-  
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [newMerchantId, setNewMerchantId] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+      await axios.put(`https://test.klveen.com/category/detail?id=${editingCategory.id}`, {
+        categoryName: editCategoryName,
+        merchantId: newMerchantId
+      }, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      setIsEditModalOpen(false);
+      setEditingCategory(null);
+      setEditCategoryName('');
+      await fetchCategories();
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+        : 'Network error: Unable to connect to server';
+      setError(errorMessage);
+      console.error('Error updating category:', err);
+    }
+  };
   // Fixed items per page for better consistency
   const itemsPerPage = 6;
   const categoryItemsPerPage = 3;
 
-  const [categories] = useState([
-    { id: 1, name: 'Food'},
-    { id: 2, name: 'Coffee' },
-    { id: 3, name: 'Snack' },
-    { id: 4, name: 'Drinks' },
-    { id: 5, name: 'Milk Tea' },
-    { id: 6, name: 'Cinnamon' },
-  ]);
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
 
-  const [products] = useState([
-    { 
-      id: 1, 
-      name: 'Nasi Goreng', 
-      category: 'Food', 
-      price: 25000,
-      description: 'Nasi goreng spesial dengan telur, ayam, dan sayuran segar',
-      image: 'https://img.kurio.network/ewrCJ9eRNpljU-80vrqWDQkN7o4=/1200x675/filters:quality(80)/https://kurio-img.kurioapps.com/20/10/10/a7e9eaa0-1c22-42b0-a11f-0a5ad1d30126.jpeg'
-    },
-    { 
-      id: 2, 
-      name: 'Mie Goreng', 
-      category: 'Food', 
-      price: 23000,
-      description: 'Mie goreng spesial dengan telur, ayam, dan sayuran segar',
-      image: 'https://www.masakapahariini.com/wp-content/uploads/2023/11/Resep-Mie-Goreng-Telur-Untuk-Tanggal-Tua-500x300.jpg'
-    },
-    { 
-      id: 3, 
-      name: 'Ayam Goreng', 
-      category: 'Food', 
-      price: 28000,
-      description: 'Ayam goreng dengan bumbu rempah yang kuat',
-      image: 'https://www.masakapahariini.com/wp-content/uploads/2023/11/Resep-Ayam-Goreng-Lalapan.jpg'
-    },
-    { 
-      id: 4, 
-      name: 'Sate Ayam', 
-      category: 'Food', 
-      price: 30000,
-      image: 'https://asset.kompas.com/crops/MrdYDsxogO0J3wGkWCaGFWzVFxk=/0x0:1000x667/750x500/data/photo/2021/03/27/605ed24c33816.jpg'
-    },
-    { 
-      id: 5, 
-      name: 'Gado-gado', 
-      category: 'Food', 
-      price: 20000,
-      image: 'https://asset.kompas.com/crops/UhV4tA3mOgx-gfhVMqYLgMqZG4U=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef1f58c7c5.jpg'
-    },
-    { 
-      id: 6, 
-      name: 'Soto Ayam', 
-      category: 'Food', 
-      price: 25000,
-      image: 'https://asset.kompas.com/crops/MaWuiv-nL8W-QUYkKqwlY9Whs28=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef31b49霰.jpg'
-    },
-    { 
-      id: 7, 
-      name: 'Rendang', 
-      category: 'Food', 
-      price: 35000,
-      image: 'https://asset.kompas.com/crops/MrdYDsxogO0J3wGkWCaGFWzVFxk=/0x0:1000x667/750x500/data/photo/2021/03/27/605ed24c33816.jpg'
-    },
-    { 
-      id: 8, 
-      name: 'Nasi Uduk', 
-      category: 'Food', 
-      price: 18000,
-      image: 'https://asset.kompas.com/crops/UhV4tA3mOgx-gfhVMqYLgMqZG4U=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef1f58c7c5.jpg'
-    },
-    { 
-      id: 9, 
-      name: 'Bakso', 
-      category: 'Food', 
-      price: 22000,
-      image: 'https://asset.kompas.com/crops/MaWuiv-nL8W-QUYkKqwlY9Whs28=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef31b49霰.jpg'
-    },
-    { 
-      id: 10, 
-      name: 'Mie Ayam', 
-      category: 'Food', 
-      price: 23000,
-      image: 'https://asset.kompas.com/crops/MrdYDsxogO0J3wGkWCaGFWzVFxk=/0x0:1000x667/750x500/data/photo/2021/03/27/605ed24c33816.jpg'
-    },
-    { 
-      id: 11, 
-      name: 'Nasi Campur', 
-      category: 'Food', 
-      price: 27000,
-      image: 'https://asset.kompas.com/crops/UhV4tA3mOgx-gfhVMqYLgMqZG4U=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef1f58c7c5.jpg'
-    },
-    { 
-      id: 12, 
-      name: 'Sop Buntut', 
-      category: 'Food', 
-      price: 45000,
-      image: 'https://asset.kompas.com/crops/MaWuiv-nL8W-QUYkKqwlY9Whs28=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef31b49霰.jpg'
-    },
-    { 
-      id: 13, 
-      name: 'Nasi Kuning', 
-      category: 'Food', 
-      price: 20000,
-      image: 'https://asset.kompas.com/crops/MrdYDsxogO0J3wGkWCaGFWzVFxk=/0x0:1000x667/750x500/data/photo/2021/03/27/605ed24c33816.jpg'
-    },
-    { 
-      id: 14, 
-      name: 'Pecel Lele', 
-      category: 'Food', 
-      price: 25000,
-      image: 'https://asset.kompas.com/crops/UhV4tA3mOgx-gfhVMqYLgMqZG4U=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef1f58c7c5.jpg'
-    },
-    { 
-      id: 15, 
-      name: 'Ikan Bakar', 
-      category: 'Food', 
-      price: 35000,
-      image: 'https://asset.kompas.com/crops/MaWuiv-nL8W-QUYkKqwlY9Whs28=/0x0:1000x667/750x500/data/photo/2021/03/27/605ef31b49霰.jpg'
-    },
-    { 
-      id: 16, 
-      name: 'Vanila Latte', 
-      category: 'Coffee', 
-      price: 18000,
-      image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS21Ej18UZMNmnFAUBDb02DAhR85jFkbXUKrA&s'
-    },
-  ]);
+  const fetchProducts = async (categoryId) => {
+    setProductsLoading(true);
+    try {
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+      const response = await axios.get('https://test.klveen.com/product/', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      const allProducts = response.data.data;
+      const filteredProducts = categoryId
+        ? allProducts.filter(product => product.categoryId === categoryId)
+        : allProducts;
+      setProducts(filteredProducts);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+        : 'Network error: Unable to connect to server';
+      setError(errorMessage);
+      console.error('Error fetching products:', err);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    if (selectedCategory) {
+      const category = categories.find(cat => cat.categoryName === selectedCategory);
+      if (category) {
+        fetchProducts(category.id);
+      }
+    }
+  }, [selectedCategory, categories]);
+
+  const fetchCategories = async () => {
+    try {
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+      let merchantId;
+      try {
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+        merchantId = tokenPayload.id;
+        setNewMerchantId(merchantId);
+      } catch (err) {
+        console.error('Error decoding access token:', err);
+        return;
+      }
+      const response = await axios.get('https://test.klveen.com/category/', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      setCategories(response.data.data);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+        : 'Network error: Unable to connect to server';
+      setError(errorMessage);
+      console.error('Error fetching categories:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Add Category form submission
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    try {
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+    
+      await axios.post('https://test.klveen.com/category/', 
+        { categoryName: newCategory,
+          merchantId: newMerchantId,
+         },
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      setNewCategory('');
+      setIsModalOpen(false);
+      await fetchCategories();
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+        : 'Network error: Unable to connect to server';
+      setError(errorMessage);
+      console.error('Error adding category:', err);
+    }
+  };
   // Filter and pagination for categories
   const filteredCategories = useMemo(() => {
     return categories.filter(category =>
-      category.name.toLowerCase().includes(searchCategory.toLowerCase())
+      category && category.categoryName && category.categoryName.toLowerCase().includes(searchCategory.toLowerCase())
     );
   }, [categories, searchCategory]);
 
@@ -155,12 +180,15 @@ const Product = () => {
   // Filter and pagination for products
   const filteredProducts = useMemo(() => {
     const categoryFiltered = selectedCategory
-      ? products.filter(product => product.category === selectedCategory)
-      : [];
+      ? products.filter(product => {
+          const category = categories.find(cat => cat.categoryName === selectedCategory);
+          return category && product.categoryId === category.id;
+        })
+      : products;
     return categoryFiltered.filter(product =>
-      product.name.toLowerCase().includes(searchProduct.toLowerCase())
+      product.productName.toLowerCase().includes(searchProduct.toLowerCase())
     );
-  }, [products, selectedCategory, searchProduct]);
+  }, [products, selectedCategory, searchProduct, categories]);
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentProductPage - 1) * itemsPerPage;
@@ -189,7 +217,10 @@ const Product = () => {
               />
             </div>
           </div>
-          <button className="w-full md:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="w-full md:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+          >
             Add Category
           </button>
         </div>
@@ -199,13 +230,19 @@ const Product = () => {
             <div 
               key={category.id} 
               className={`bg-white p-4 rounded-lg shadow-sm flex justify-between items-center cursor-pointer hover:bg-gray-50 ${
-                selectedCategory === category.name ? 'ring-2 ring-orange-500' : ''
+                selectedCategory === category.categoryName ? 'ring-2 ring-orange-500' : ''
               }`}
-              onClick={() => setSelectedCategory(category.name)}
+              onClick={() => setSelectedCategory(category.categoryName)}
             >
-              <span className="font-medium">{category.name}</span>
+              <span className="font-medium">{category.categoryName}</span>
               <div className="flex space-x-2">
-                <button className="p-2 text-blue-600 hover:bg-blue-50 rounded">
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingCategory(category);
+                  setEditCategoryName(category.categoryName);
+                  setIsEditModalOpen(true);
+                }}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
@@ -279,6 +316,16 @@ const Product = () => {
       </div>
 
       {/* Products Section */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Products</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedProducts.map((product) => (
+              <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
+              
+              </div>
+            ))}
+          </div>
+      </div>
       {selectedCategory && (
         <div>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
@@ -305,17 +352,26 @@ const Product = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {paginatedProducts.map((product) => (
               <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
-                <div className="relative h-48">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="absolute w-full h-full object-cover"
-                  />
+                <div className="aspect-w-16 aspect-h-9 relative">
+                  {product.productImage ? (
+                    <img
+                      src={product.productImage}
+                      alt={product.productName}
+                      className="object-cover w-full h-48"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-400">No image available</span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4 flex-1 flex flex-col">
-                  <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
-                  <p className="text-gray-600 mb-2">Rp {product.price.toLocaleString()}</p>
-                  <p className="text-sm text-gray-500 line-clamp-2 flex-1">{product.description}</p>
+                  <h3 className="text-lg font-medium text-gray-900">{product.productName}</h3>
+                  <p className="text-gray-600 mb-2">Rp {product.productPrice.toLocaleString()}</p>
+                  <p className="text-sm text-gray-500 line-clamp-2 flex-1">{product.productDescription}</p>
                   <div className="mt-4 flex justify-end space-x-2">
                     <button className="p-2 text-blue-600 hover:bg-blue-50 rounded">
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -389,6 +445,127 @@ const Product = () => {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Add Category Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Category</h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const accessToken = Cookies.get('access');
+                if (!accessToken) {
+                  setError('Authentication required. Please log in.');
+                  return;
+                }
+              
+                await axios.post('https://test.klveen.com/category/', 
+                  { categoryName: newCategory,
+                    merchantId: newMerchantId,
+                   },
+
+                  {
+                    headers: {
+                      'Authorization': `Bearer ${accessToken}`,
+                      'Content-Type': 'application/json'
+                    }
+                  }
+                );
+                setNewCategory('');
+                setIsModalOpen(false);
+                // Refresh categories
+                const response = await axios.get('https://test.klveen.com/category/', {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                  }
+                });
+                setCategories(response.data.data);
+                setError(null);
+              } catch (err) {
+                const errorMessage = err.response
+                  ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+                  : 'Network error: Unable to connect to server';
+                setError(errorMessage);
+                console.error('Error adding category:', err);
+              }
+            }}>
+              <div className="mb-4">
+                <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  id="categoryName"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Enter category name"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-white bg-orange-600 rounded-lg hover:bg-orange-700"
+                >
+                  Add
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Edit Category Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Category</h3>
+            <form onSubmit={handleEditSubmit}>
+              <div className="mb-4">
+                <label htmlFor="editCategoryName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  id="editCategoryName"
+                  value={editCategoryName}
+                  onChange={(e) => setEditCategoryName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Enter category name"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingCategory(null);
+                    setEditCategoryName('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-white bg-orange-600 rounded-lg hover:bg-orange-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
