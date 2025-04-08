@@ -108,7 +108,8 @@ const Product = () => {
         console.error('Error decoding access token:', err);
         return;
       }
-      const response = await axios.get('https://test.klveen.com/category/', {
+      const response = await axios.get('https://test.klveen.com/category/getAllByMerchantId', {
+        merchantId: newMerchantId,
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
@@ -477,7 +478,8 @@ const Product = () => {
                 setNewCategory('');
                 setIsModalOpen(false);
                 // Refresh categories
-                const response = await axios.get('https://test.klveen.com/category/', {
+                const response = await axios.get('https://test.klveen.com/category/getAllByMerchantId', {
+                  merchantId: newMerchantId, // Replace with your merchant ID o
                   headers: {
                     'Authorization': `Bearer ${accessToken}`
                   }
