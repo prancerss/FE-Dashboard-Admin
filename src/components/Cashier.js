@@ -62,7 +62,7 @@ const Cashier = () => {
       email: '',
       phone: '',
       branchCashier: '',
-      merchantId: 1
+      merchantId: '',
     });
     setIsModalOpen(true);
   };
@@ -88,20 +88,37 @@ const Cashier = () => {
         setError('Authentication required. Please log in.');
         return;
       }
+
+      let merchantId;
+      try {
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+        merchantId = tokenPayload.id;
+      } catch (err) {
+        console.error('Error decoding access token:', err);
+        setError('Error processing authentication token');
+        return;
+      }
+
       const config = {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
       };
+
+      const submissionData = {
+        ...formData,
+        merchantId
+      };
+
       if (currentCashier) {
         // Edit existing cashier
-        await axios.put(`https://test.klveen.com/cashier/detail/?id=${currentCashier.id}`, formData, config);
+        await axios.put(`https://test.klveen.com/cashier/detail/?id=${currentCashier.id}`, submissionData, config);
         setError(null);
         setIsModalOpen(false);
         await fetchCashiers();
       } else {
         // Add new cashier
-        await axios.post('https://test.klveen.com/cashier/create', formData, config);
+        await axios.post('https://test.klveen.com/cashier/create', submissionData, config);
         setError(null);
         setIsModalOpen(false);
         await fetchCashiers();
