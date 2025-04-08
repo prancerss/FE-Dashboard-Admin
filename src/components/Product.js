@@ -23,7 +23,8 @@ const Product = () => {
     price: '',
     description: '',
     image: '',
-    categoryId: ''
+    categoryId: '',
+    merchantId: ''
   });
 
   const handleAddProduct = async (e) => {
@@ -34,12 +35,22 @@ const Product = () => {
         setError('Authentication required. Please log in.');
         return;
       }
-      await axios.post('https://test.klveen.com/product/create',
-        newProduct,
+
+      const formData = new FormData();
+      formData.append('productName', newProduct.productName);
+      formData.append('productPrice', newProduct.price);
+      formData.append('productDescription', newProduct.description);
+      formData.append('image', newProduct.image);
+      const categoryId = selectedCategory ? categories.find(cat => cat.categoryName === selectedCategory).id : '';
+      formData.append('categoryId', categoryId);
+      formData.append('merchantId', newMerchantId);
+
+      await axios.post('https://test.klveen.com/product/',
+        formData,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
@@ -48,10 +59,14 @@ const Product = () => {
         price: '',
         description: '',
         image: '',
-        categoryId: ''
+        categoryId: '',
+        merchantId: ''
       });
       setIsAddProductModalOpen(false);
-      await fetchProducts();
+      // Refresh products with the current category ID
+      if (categoryId) {
+        await fetchProducts(categoryId);
+      }
       setError(null);
     } catch (err) {
       const errorMessage = err.response
@@ -105,7 +120,7 @@ const Product = () => {
         setError('Authentication required. Please log in.');
         return;
       }
-      const response = await axios.get('https://test.klveen.com/product/', {
+      const response = await axios.get(`https://test.klveen.com/product/category?categoryId=${categoryId}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
@@ -239,7 +254,6 @@ const Product = () => {
     const startIndex = (currentProductPage - 1) * itemsPerPage;
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredProducts, currentProductPage, itemsPerPage]);
-
   const totalProductPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   return (
