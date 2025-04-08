@@ -477,14 +477,21 @@ const Product = () => {
                 );
                 setNewCategory('');
                 setIsModalOpen(false);
-                // Refresh categories
-                const response = await axios.get('https://test.klveen.com/category/getAllByMerchantId', {
-                  merchantId: newMerchantId, // Replace with your merchant ID o
+                // Refresh categories and products
+                const response = await axios.get(`https://test.klveen.com/category/getAllByMerchantId?merchantId=${newMerchantId}`, {
                   headers: {
                     'Authorization': `Bearer ${accessToken}`
                   }
                 });
                 setCategories(response.data.data);
+                
+                // Refresh products for the current category
+                if (selectedCategory) {
+                  const category = response.data.data.find(cat => cat.categoryName === selectedCategory);
+                  if (category) {
+                    await fetchProducts(category.id);
+                  }
+                }
                 setError(null);
               } catch (err) {
                 const errorMessage = err.response
