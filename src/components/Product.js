@@ -17,6 +17,50 @@ const Product = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState('');
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    productName: '',
+    price: '',
+    description: '',
+    image: '',
+    categoryId: ''
+  });
+
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    try {
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+      await axios.post('https://test.klveen.com/product/create',
+        newProduct,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      setNewProduct({
+        productName: '',
+        price: '',
+        description: '',
+        image: '',
+        categoryId: ''
+      });
+      setIsAddProductModalOpen(false);
+      await fetchProducts();
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+        : 'Network error: Unable to connect to server';
+      setError(errorMessage);
+      console.error('Error adding product:', err);
+    }
+  };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
@@ -345,7 +389,9 @@ const Product = () => {
                 />
               </div>
             </div>
-            <button className="w-full md:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+            <button 
+              onClick={() => setIsAddProductModalOpen(true)}
+              className="w-full md:w-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
               Add Product
             </button>
           </div>
@@ -577,8 +623,86 @@ const Product = () => {
           </div>
         </div>
       )}
+
+      {/* Add Product Modal */}
+      {isAddProductModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4">Add New Product</h2>
+            <form onSubmit={handleAddProduct}>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="productName">
+                  Product Name
+                </label>
+                <input
+                  type="text"
+                  id="productName"
+                  value={newProduct.productName}
+                  onChange={(e) => setNewProduct({...newProduct, productName: e.target.value})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="price">
+                  Price
+                </label>
+                <input
+                  type="number"
+                  id="price"
+                  value={newProduct.price}
+                  onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  value={newProduct.description}
+                  onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image">
+                  Product Image
+                </label>
+                <input
+                  type="file"
+                  id="image"
+                  accept="image/*"
+                  onChange={(e) => setNewProduct({...newProduct, image: e.target.files[0]})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddProductModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                >
+                  Add Product
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+
 
 export default Product;
