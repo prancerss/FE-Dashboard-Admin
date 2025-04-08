@@ -19,12 +19,12 @@ const Cashier = () => {
         setError('Authentication required. Please log in.');
         return;
       }
-      const response = await axios.get('https://test.klveen.com/cashier', {
+      const response = await axios.get('https://test.klveen.com/cashier/getAllCashiersByMerchantId', {
         headers: {
           'Authorization': `Bearer ${accessToken}`
         }
       });
-      setCashiers(response.data);
+      setCashiers(response.data.data);
       setError(null);
     } catch (err) {
       const errorMessage = err.response ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}` : 'Network error: Unable to connect to server';
