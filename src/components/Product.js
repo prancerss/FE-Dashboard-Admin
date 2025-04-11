@@ -27,7 +27,212 @@ const Product = () => {
     merchantId: ''
   });
 
-  const handleAddProduct = async (e) => {
+  const fetchCategories = async () => {
+    try {
+      const accessToken = Cookies.get('access');
+      if (!accessToken) {
+        setError('Authentication required. Please log in.');
+        return;
+      }
+      let merchantId;
+      try {
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+        merchantId = tokenPayload.id;
+        setNewMerchantId(merchantId);
+      } catch (err) {
+        console.error('Error decoding access token:', err);
+        return;
+      }
+      const response = await axios.get('https://test.klveen.com/category/getAllByMerchantId', {
+        merchantId: newMerchantId,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      setCategories(response.data.data);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err.response
+        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+        : 'Network error: Unable to connect to server';
+      setError(errorMessage);
+      console.error('Error fetching categories:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+    // Add Category form submission
+    const handleAddCategory = async (e) => {
+      e.preventDefault();
+      try {
+        const accessToken = Cookies.get('access');
+        if (!accessToken) {
+          setError('Authentication required. Please log in.');
+          return;
+        }
+      
+        await axios.post('https://test.klveen.com/category/', 
+          { categoryName: newCategory,
+            merchantId: newMerchantId,
+           },
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        setNewCategory('');
+        setIsModalOpen(false);
+        await fetchCategories();
+        setError(null);
+      } catch (err) {
+        const errorMessage = err.response
+          ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+          : 'Network error: Unable to connect to server';
+        setError(errorMessage);
+        console.error('Error adding category:', err);
+      }
+    };
+
+    const handleEditSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const accessToken = Cookies.get('access');
+        if (!accessToken) {
+          setError('Authentication required. Please log in.');
+          return;
+        }
+        await axios.put(`https://test.klveen.com/category/detail?id=${editingCategory.id}`, {
+          categoryName: editCategoryName,
+          merchantId: newMerchantId
+        }, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        setIsEditModalOpen(false);
+        setEditingCategory(null);
+        setEditCategoryName('');
+        await fetchCategories();
+      } catch (err) {
+        const errorMessage = err.response
+          ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+          : 'Network error: Unable to connect to server';
+        setError(errorMessage);
+        console.error('Error updating category:', err);
+      }
+    };
+
+    const handleDeleteCategory = async (categoryId, e) => {
+      e.stopPropagation();
+      if (!window.confirm('Are you sure you want to delete this category?')) {
+        return;
+      }
+      try {
+        const accessToken = Cookies.get('access');
+        if (!accessToken) {
+          setError('Authentication required. Please log in.');
+          return;
+        }
+        setLoading(true);
+        await axios.delete(`https://test.klveen.com/category/detail?id=${categoryId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        
+        // Clear selected category if it was deleted
+        const deletedCategory = categories.find(cat => cat.id === categoryId);
+        if (deletedCategory && deletedCategory.categoryName === selectedCategory) {
+          setSelectedCategory(null);
+          setProducts([]);
+        }
+        
+        // Refresh both categories and products lists
+        await fetchCategories();
+        if (selectedCategory) {
+          await fetchProducts(selectedCategory);
+        }
+        setError(null);
+      } catch (err) {
+        const errorMessage = err.response
+          ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+          : 'Network error: Unable to connect to server';
+        setError(errorMessage);
+        console.error('Error deleting category:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleAddProduct = async (e) => {
+      e.preventDefault();
+      try {
+        const accessToken = Cookies.get('access');
+        if (!accessToken) {
+          setError('Authentication required. Please log in.');
+          return;
+        }
+  
+        const formData = new FormData();
+        formData.append('productName', newProduct.productName);
+        formData.append('productPrice', newProduct.price);
+        formData.append('productDescription', newProduct.description);
+        formData.append('image', newProduct.image);
+        const categoryId = selectedCategory ? categories.find(cat => cat.categoryName === selectedCategory).id : '';
+        formData.append('categoryId', categoryId);
+        formData.append('merchantId', newMerchantId);
+  
+        await axios.post('https://test.klveen.com/product/',
+          formData,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+        setNewProduct({
+          productName: '',
+          price: '',
+          description: '',
+          image: '',
+          categoryId: '',
+          merchantId: ''
+        });
+        setIsAddProductModalOpen(false);
+        // Refresh products with the current category ID
+        if (categoryId) {
+          await fetchProducts(categoryId);
+        }
+        setError(null);
+      } catch (err) {
+        const errorMessage = err.response
+          ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+          : 'Network error: Unable to connect to server';
+        setError(errorMessage);
+        console.error('Error adding product:', err);
+      }
+    };
+
+  const [isEditProductModalOpen, setIsEditProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editProduct, setEditProduct] = useState({
+    productName: '',
+    price: '',
+    description: '',
+    image: '',
+    categoryId: '',
+    merchantId: ''
+  });
+
+  const handleEditProduct = async (e) => {
     e.preventDefault();
     try {
       const accessToken = Cookies.get('access');
@@ -37,15 +242,16 @@ const Product = () => {
       }
 
       const formData = new FormData();
-      formData.append('productName', newProduct.productName);
-      formData.append('productPrice', newProduct.price);
-      formData.append('productDescription', newProduct.description);
-      formData.append('image', newProduct.image);
-      const categoryId = selectedCategory ? categories.find(cat => cat.categoryName === selectedCategory).id : '';
-      formData.append('categoryId', categoryId);
-      formData.append('merchantId', newMerchantId);
+      formData.append('productName', editProduct.productName);
+      formData.append('productPrice', editProduct.price);
+      formData.append('productDescription', editProduct.description);
+      if (editProduct.image) {
+        formData.append('image', editProduct.image);
+      }
+      formData.append('categoryId', editProduct.categoryId);
+      formData.append('merchantId', editProduct.merchantId);
 
-      await axios.post('https://test.klveen.com/product/',
+      await axios.put(`https://test.klveen.com/product/detail?id=${editingProduct.id}`,
         formData,
         {
           headers: {
@@ -54,7 +260,9 @@ const Product = () => {
           }
         }
       );
-      setNewProduct({
+      setIsEditProductModalOpen(false);
+      setEditingProduct(null);
+      setEditProduct({
         productName: '',
         price: '',
         description: '',
@@ -62,10 +270,11 @@ const Product = () => {
         categoryId: '',
         merchantId: ''
       });
-      setIsAddProductModalOpen(false);
-      // Refresh products with the current category ID
-      if (categoryId) {
-        await fetchProducts(categoryId);
+      if (selectedCategory) {
+        const category = categories.find(cat => cat.categoryName === selectedCategory);
+        if (category) {
+          await fetchProducts(category.id);
+        }
       }
       setError(null);
     } catch (err) {
@@ -73,38 +282,13 @@ const Product = () => {
         ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
         : 'Network error: Unable to connect to server';
       setError(errorMessage);
-      console.error('Error adding product:', err);
+      console.error('Error updating product:', err);
     }
   };
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const accessToken = Cookies.get('access');
-      if (!accessToken) {
-        setError('Authentication required. Please log in.');
-        return;
-      }
-      await axios.put(`https://test.klveen.com/category/detail?id=${editingCategory.id}`, {
-        categoryName: editCategoryName,
-        merchantId: newMerchantId
-      }, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-      setIsEditModalOpen(false);
-      setEditingCategory(null);
-      setEditCategoryName('');
-      await fetchCategories();
-    } catch (err) {
-      const errorMessage = err.response
-        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
-        : 'Network error: Unable to connect to server';
-      setError(errorMessage);
-      console.error('Error updating category:', err);
-    }
-  };
+  
+
+  
   // Fixed items per page for better consistency
   const itemsPerPage = 6;
   const categoryItemsPerPage = 3;
@@ -150,79 +334,6 @@ const Product = () => {
       }
     }
   }, [selectedCategory, categories]);
-
-  const fetchCategories = async () => {
-    try {
-      const accessToken = Cookies.get('access');
-      if (!accessToken) {
-        setError('Authentication required. Please log in.');
-        return;
-      }
-      let merchantId;
-      try {
-        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
-        merchantId = tokenPayload.id;
-        setNewMerchantId(merchantId);
-      } catch (err) {
-        console.error('Error decoding access token:', err);
-        return;
-      }
-      const response = await axios.get('https://test.klveen.com/category/getAllByMerchantId', {
-        merchantId: newMerchantId,
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-      setCategories(response.data.data);
-      setError(null);
-    } catch (err) {
-      const errorMessage = err.response
-        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
-        : 'Network error: Unable to connect to server';
-      setError(errorMessage);
-      console.error('Error fetching categories:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  // Add Category form submission
-  const handleAddCategory = async (e) => {
-    e.preventDefault();
-    try {
-      const accessToken = Cookies.get('access');
-      if (!accessToken) {
-        setError('Authentication required. Please log in.');
-        return;
-      }
-    
-      await axios.post('https://test.klveen.com/category/', 
-        { categoryName: newCategory,
-          merchantId: newMerchantId,
-         },
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      setNewCategory('');
-      setIsModalOpen(false);
-      await fetchCategories();
-      setError(null);
-    } catch (err) {
-      const errorMessage = err.response
-        ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
-        : 'Network error: Unable to connect to server';
-      setError(errorMessage);
-      console.error('Error adding category:', err);
-    }
-  };
   // Filter and pagination for categories
   const filteredCategories = useMemo(() => {
     return categories.filter(category =>
@@ -255,6 +366,8 @@ const Product = () => {
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredProducts, currentProductPage, itemsPerPage]);
   const totalProductPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+ 
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -306,7 +419,10 @@ const Product = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 </button>
-                <button className="p-2 text-red-600 hover:bg-red-50 rounded">
+                <button 
+                  onClick={(e) => handleDeleteCategory(category.id, e)} 
+                  className="p-2 text-red-600 hover:bg-red-50 rounded"
+                >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
@@ -434,12 +550,59 @@ const Product = () => {
                   <p className="text-gray-600 mb-2">Rp {product.productPrice.toLocaleString()}</p>
                   <p className="text-sm text-gray-500 line-clamp-2 flex-1">{product.productDescription}</p>
                   <div className="mt-4 flex justify-end space-x-2">
-                    <button className="p-2 text-blue-600 hover:bg-blue-50 rounded">
+                    <button 
+                      onClick={() => {
+                        setEditingProduct(product);
+                        setEditProduct({
+                          productName: product.productName,
+                          price: product.productPrice,
+                          description: product.productDescription,
+                          image: '',
+                          categoryId: product.categoryId,
+                          merchantId: newMerchantId
+                        });
+                        setIsEditProductModalOpen(true);
+                      }}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                    >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    <button className="p-2 text-red-600 hover:bg-red-50 rounded">
+                    <button 
+                      onClick={async () => {
+                        if (!window.confirm('Are you sure you want to delete this product?')) {
+                          return;
+                        }
+                        try {
+                          const accessToken = Cookies.get('access');
+                          if (!accessToken) {
+                            setError('Authentication required. Please log in.');
+                            return;
+                          }
+                          await axios.delete(`https://test.klveen.com/product/softDelete/detail?id=${product.id}`, {
+                            headers: {
+                              'Authorization': `Bearer ${accessToken}`
+                            }
+                          });
+                          // Refresh products list after successful deletion
+                          if (selectedCategory) {
+                            const category = categories.find(cat => cat.categoryName === selectedCategory);
+                            if (category) {
+                              await fetchProducts(category.id);
+                            }
+                          }
+                          setError(null);
+                        } catch (err) {
+                          const errorMessage = err.response
+                            ? `Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`
+                            : 'Network error: Unable to connect to server';
+                          setError(errorMessage);
+                          console.error('Error deleting product:', err);
+                        }
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded"
+                    >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
@@ -638,6 +801,93 @@ const Product = () => {
         </div>
       )}
 
+      {/* Edit Product Modal */}
+      {isEditProductModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4">Edit Product</h2>
+            <form onSubmit={handleEditProduct}>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="editProductName">
+                  Product Name
+                </label>
+                <input
+                  type="text"
+                  id="editProductName"
+                  value={editProduct.productName}
+                  onChange={(e) => setEditProduct({...editProduct, productName: e.target.value})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="editPrice">
+                  Price
+                </label>
+                <input
+                  type="number"
+                  id="editPrice"
+                  value={editProduct.price}
+                  onChange={(e) => setEditProduct({...editProduct, price: e.target.value})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="editDescription">
+                  Description
+                </label>
+                <textarea
+                  id="editDescription"
+                  value={editProduct.description}
+                  onChange={(e) => setEditProduct({...editProduct, description: e.target.value})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="editImage">
+                  Product Image
+                </label>
+                <input
+                  type="file"
+                  id="editImage"
+                  accept="image/*"
+                  onChange={(e) => setEditProduct({...editProduct, image: e.target.files[0]})}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditProductModalOpen(false);
+                    setEditingProduct(null);
+                    setEditProduct({
+                      productName: '',
+                      price: '',
+                      description: '',
+                      image: '',
+                      categoryId: '',
+                      merchantId: ''
+                    });
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Add Product Modal */}
       {isAddProductModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -720,3 +970,7 @@ const Product = () => {
 
 
 export default Product;
+
+
+
+ 
